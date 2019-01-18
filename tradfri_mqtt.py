@@ -48,6 +48,7 @@ username = format(sys.argv[2])
 userkey = format(sys.argv[3])
 mqttBrokerURL = format(sys.argv[4])
 mqttBrokerPort = format(sys.argv[5])
+connected = False
 
 mutex = threading.Lock()
 
@@ -55,8 +56,16 @@ mutex = threading.Lock()
     
 
 def on_connect(client, userdata, flags, rc):
+    global connected
     print("Connected with result code "+str(rc))
-    client.subscribe("tradfri/setlight/#", 0)
+    if rc == 0:
+        client.subscribe("tradfri/setlight/#", 0)
+        connected = True
+    
+def on_disconnect(client, userdata, rc):
+    global connected
+    connected = False
+    
     
 def on_message(client, userdata, msg):
     print(msg.topic+" "+str(msg.payload))
@@ -307,6 +316,7 @@ if __name__ == '__main__':
     cmdready = threading.Event()
     client = mqtt.Client()
     client.on_connect = on_connect
+    client.on_disconnect = on_disconnect
     client.on_message = on_message
 
     client.connect_async(mqttBrokerURL, mqttBrokerPort, 60)
@@ -329,6 +339,9 @@ if __name__ == '__main__':
          
         cmdready.wait(10)
         cmdready.clear()
+        if connected is False:
+            print("Awaiting MQTT connection ...\n");
+            continue
         
         for thisgroup in groups:
             gonoff = "OFF"
